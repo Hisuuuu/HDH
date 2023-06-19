@@ -126,7 +126,6 @@ char *path;         // Duong dan
 char drive;         // O dia
 EntryBPB BPB;       // Bang tham so dia
 unsigned char *FAT; // Noi dung bang FAT
-long SecStart = 0;  // Sector bat dau
 
 #pragma endregion
 
@@ -213,7 +212,7 @@ PointerType AnalysePath(char *path)
             cout << "\nDuong dan chua co thu muc";
             return NULL;
         }
-        int i = 3; // 4 ky tu con lai
+        int i = 3; // Ky tu con lai
         while (path[i] != '\0') // Doc den het duong dan
         {
             int j = 0;
@@ -234,7 +233,7 @@ PointerType AnalysePath(char *path)
             j = 0;
             while (fileName[j] != '.' && fileName[j] != '\0') // Lay ten cua thu muc (khong tinh phan mo rong)
                 ++j;
-            if (fileName[j] == '.') // Neu no la tap tin, chuyen doi thanh quy uoc dat ten 8.3 (8: ten, 3: phan mo rong)
+            if (fileName[j] == '.') // Neu no la tap tin, chuyen doi thanh quy uoc dat ten 8.3 dung boi MS-DOS
             {
                 fileName[j] = ' ';
                 ++j;
@@ -329,8 +328,8 @@ int ReadDiskBIOS(char *buff, unsigned side, unsigned track, unsigned sector, uns
 void ReadBPB()
 {
     UnionBPB temp;
-    if (drive == 0 || drive == 1 || drive == (char)0x80) //Xac dinh o dia doc la dia mem hay dia cung
-        if (!ReadDiskBIOS(temp.Sec, 0, 1, 1, 1))
+    if (drive == 0 || drive == 1) //Xac dinh o dia doc la dia mem hay dia cung
+        if (!ReadDiskBIOS(temp.Sec, 0, 1, 1, 1)) // Chi dinh sector dau tien chua BPB tren dia
         {
             cout << "\nKhong doc duoc bang tham so dia";
             return;
@@ -340,19 +339,19 @@ void ReadBPB()
 
 /*Doi cac gia tri trong phan vung thanh cac thong so side, track, sector tuong ung
 Tham so dau vao:
-- begin: Vi tri bat dau
+- start: Vi tri bat dau
 - side: So mat cua dia
 - track: So track cua dia
 - sector: Vi tri sector
 Gia tri track moi la ket hop giua gia tri sector 
 Luu y: Phai gan cho bien toan cuc BPB truoc
 */
-void Change(long begin, unsigned &side, unsigned &track, unsigned &sector)
+void Change(long start, unsigned &side, unsigned &track, unsigned &sector)
 {
     unsigned x;
-    sector = (unsigned)(1 + begin % BPB.TrkSec);
-    side = (unsigned)((begin / BPB.TrkSec) % BPB.HeadCnt);
-    track = (unsigned)(begin / (BPB.TrkSec * BPB.HeadCnt));
+    sector = (unsigned)(1 + start % BPB.TrkSec);
+    side = (unsigned)((start / BPB.TrkSec) % BPB.HeadCnt);
+    track = (unsigned)(start / (BPB.TrkSec * BPB.HeadCnt));
     x = track; // Gia tri track ban dau
     x = x & 0xFF00; // Lam tron den 8 bit cao nhat
     x = x >> 2; // Dich sang phai 2 bit
@@ -365,16 +364,16 @@ void Change(long begin, unsigned &side, unsigned &track, unsigned &sector)
 /*Doc du lieu tu dia
 Tham so dau vao:
 - buff: Buff luu du lieu doc duoc
-- begin: Vi tri bat dau doc
+- start: Vi tri bat dau doc
 - number: So sector can doc
 Tra ve:
 - true: Thanh cong
 - false: That bai
 */
-int ReadDisk(char *buff, long begin, int number)
+int ReadDisk(char *buff, long start, int number)
 {
     unsigned side, track, sector;
-    Change(begin, side, track, sector);
+    Change(start, side, track, sector);
     if (ReadDiskBIOS(buff, side, track, sector, number))
         return 1;
     else
@@ -494,7 +493,8 @@ PointerType GetEntryDir(PointerType listCluster, char flag)
     {
         currentCluster = *(unsigned *)p->Data;
         if (flag)
-            currentSector = BPB.ResSec + BPB.FatSiz * BPB.FatCnt + (BPB.RootSiz * 32) / 512 + (currentCluster - 2) * BPB.ClustSiz;
+            currentSector = BPB.ResSec + BPB.FatSiz * BPB.FatCnt + (BPB.RootSiz * 32) / 512 
+            + (currentCluster - 2) * BPB.ClustSiz;
         else
             currentSector = currentCluster;
         if (!ReadDisk(buffDir, currentSector, BPB.ClustSiz))
@@ -552,7 +552,8 @@ void PrintTo(PointerType listEntry)
                 cout << dir.Ext[i];
             cout << '\t' << dir.FileSize
                  << "\t\t" << ((dir.Tg).T).H << ':' << ((dir.Tg).T).M
-                 << '\t' << ((dir.Ng).Dat).D << '/' << ((dir.Ng).Dat).M << "/" << ((dir.Ng).Dat).Y + 1980;
+                 << '\t' << ((dir.Ng).Dat).D << '/' << ((dir.Ng).Dat).M 
+                 << "/" << ((dir.Ng).Dat).Y + 1980;
         }
         p = p->Next;
     }
